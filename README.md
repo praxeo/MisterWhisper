@@ -16,7 +16,7 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 
 - GPU acceleration (optional): Powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for fast and accurate voice recognition.
 
-- Local or remote : You can use WhisperCPP locally or connect to a remote service for transcription.
+- Local or remote : You can use the included Whisper transcription locally or connect to a remote service for transcription.
 
 # Installation
 
