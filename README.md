@@ -5,6 +5,9 @@ MisterWhisper is an open-source application designed to simplify your workflow b
 
 MisterWhisper supports over 100 languages, making it a robust multilingual transcription tool.
 
+![MisterWhisper](https://raw.githubusercontent.com/openconcerto/MisterWhisper/refs/heads/main/tray.png)
+
+
 # Features
 
 - Quick voice transcription: Record and transcribe speech only while the designated key is pressed, like a walkie-talkie.
@@ -13,7 +16,7 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 
 - GPU acceleration (optional): Powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for fast and accurate voice recognition.
 
-- Local or remote : You can use WhisperCPP locally or connect to a remote service for transcription.
+- Local or remote : You can use the included Whisper transcription locally or connect to a remote service for transcription.
 
 # Installation
 
@@ -27,6 +30,7 @@ MisterWhisper requires a Java runtime to be installed (version 8 or newer)
 
 Keep F8 pressed while talking, the text will be inserted into the currently active software after key release.
 
+To change or access settings, right click on the tray icon.
 
 # Advanced Usage
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
@@ -43,7 +47,7 @@ MisterWhisper.exe "http://192.168.1.100:9595/inference"
 
 # Acknowledgements
 
-Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp. Priving that we don't need tons of poor Python software for 
+Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Proving that we don't need tons of poor Python software for ai tools.
 
 OpenAI : For the open-source [Whisper](https://github.com/openai/whisper) project.
 
