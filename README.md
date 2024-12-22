@@ -11,7 +11,7 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 
 - Integration with active software: Automatically inputs transcribed text into the application you are currently using.
 
-- GPU acceleration: Powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for fast and accurate voice recognition.
+- GPU acceleration (optional): Powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for fast and accurate voice recognition.
 
 - Local or remote : You can use WhisperCPP locally or connect to a remote service for transcription.
 
@@ -21,7 +21,7 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 - download a Whisper model and copy it in the *models* folder from : https://huggingface.co/ggerganov/whisper.cpp/tree/main
 
 # Usage
-Just launch the *MisterWhisper.exe*.
+Just launch the *MisterWhisper.exe* (or MisterWhisper.jar).
 
 MisterWhisper requires a Java runtime to be installed (version 8 or newer)
 
