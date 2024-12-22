@@ -47,7 +47,7 @@ MisterWhisper.exe "http://192.168.1.100:9595/inference"
 
 # Acknowledgements
 
-Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp. Priving that we don't need tons of poor Python software for 
+Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Proving that we don't need tons of poor Python software for ai tools.
 
 OpenAI : For the open-source [Whisper](https://github.com/openai/whisper) project.
 
