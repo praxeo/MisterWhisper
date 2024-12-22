@@ -51,6 +51,8 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import com.github.kwhat.jnativehook.GlobalScreen;
 import com.github.kwhat.jnativehook.NativeHookException;
@@ -76,6 +78,8 @@ public class MisterWhisper implements NativeKeyListener {
     private boolean transcribing;
     private String model;
     private String remoteUrl;
+    private List<String> history = new ArrayList<>();
+    private List<ChangeListener> historyListeners = new ArrayList<>();
 
     public MisterWhisper(String remoteUrl) throws FileNotFoundException, NativeHookException {
         this.prefs = Preferences.userRoot().node("mister-whisper");
@@ -218,9 +222,44 @@ public class MisterWhisper implements NativeKeyListener {
             f9Item.setState(true);
         }
 
+        f8Item.addItemListener(new ItemListener() {
+
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (f8Item.getState()) {
+                    MisterWhisper.this.hotkey = "F8";
+                    MisterWhisper.this.prefs.put("hotkey", MisterWhisper.this.hotkey);
+                    try {
+                        MisterWhisper.this.prefs.sync();
+                    } catch (BackingStoreException e1) {
+                        e1.printStackTrace();
+                        JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + e1.getMessage());
+                    }
+                    f9Item.setState(false);
+                    MisterWhisper.this.trayIcon.setToolTip("Press " + MisterWhisper.this.hotkey + " to record");
+
+                }
+            }
+        });
+        f9Item.addItemListener(new ItemListener() {
+
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (f8Item.getState()) {
+                    MisterWhisper.this.hotkey = "F9";
+                    MisterWhisper.this.prefs.put("hotkey", MisterWhisper.this.hotkey);
+                    try {
+                        MisterWhisper.this.prefs.sync();
+                    } catch (BackingStoreException e1) {
+                        e1.printStackTrace();
+                        JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + e1.getMessage());
+                    }
+                    f8Item.setState(false);
+                    MisterWhisper.this.trayIcon.setToolTip("Press " + MisterWhisper.this.hotkey + " to record");
+                }
+            }
+        });
         MenuItem exitItem = new MenuItem("Exit");
-        // Add components to pop-up menu
-        // popup.add(aboutItem);
 
         popup.add(autoPaste);
         if (this.remoteUrl == null) {
@@ -278,6 +317,11 @@ public class MisterWhisper implements NativeKeyListener {
         popup.add(hotkeysMenu);
         hotkeysMenu.add(f8Item);
         hotkeysMenu.add(f9Item);
+
+        final MenuItem historyItem = new MenuItem("History");
+
+        popup.add(historyItem);
+
         popup.addSeparator();
         popup.add(exitItem);
         exitItem.addActionListener(new ActionListener() {
@@ -288,7 +332,17 @@ public class MisterWhisper implements NativeKeyListener {
 
             }
         });
+        historyItem.addActionListener(new ActionListener() {
 
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                HistoryFrame f = new HistoryFrame(MisterWhisper.this);
+                f.setSize(600, 800);
+                f.setLocationRelativeTo(null);
+                f.setVisible(true);
+
+            }
+        });
         return popup;
     }
 
@@ -374,11 +428,47 @@ public class MisterWhisper implements NativeKeyListener {
                             public void run() {
                                 setTranscribing(true);
                                 try {
+                                    String str;
                                     if (MisterWhisper.this.remoteUrl == null) {
-                                        process(out, paste);
+                                        str = process(out, paste);
                                     } else {
-                                        processRemote(out, paste);
+                                        str = processRemote(out, paste);
                                     }
+
+                                    if (!str.isEmpty()) {
+                                        SwingUtilities.invokeLater(new Runnable() {
+
+                                            @Override
+                                            public void run() {
+
+                                                if (paste) {
+                                                    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                                                    clipboard.setContents(new StringSelection(str + "\n"), null);
+                                                    try {
+                                                        Robot robot = new Robot();
+                                                        robot.keyPress(KeyEvent.VK_CONTROL);
+                                                        robot.keyPress(KeyEvent.VK_V);
+                                                        robot.keyRelease(KeyEvent.VK_V);
+                                                        robot.keyRelease(KeyEvent.VK_CONTROL);
+                                                    } catch (AWTException e) {
+                                                        e.printStackTrace();
+                                                    }
+                                                }
+                                                // Invoke later to be sure paste is done
+                                                SwingUtilities.invokeLater(new Runnable() {
+
+                                                    @Override
+                                                    public void run() {
+                                                        MisterWhisper.this.history.add(str);
+                                                        fireHistoryChanged();
+                                                    }
+                                                });
+                                            }
+                                        });
+
+                                    }
+                                    out.delete();
+
                                 } catch (Exception e) {
                                     JOptionPane.showMessageDialog(null, "Error processing record : " + e.getMessage());
                                     e.printStackTrace();
@@ -448,62 +538,25 @@ public class MisterWhisper implements NativeKeyListener {
 
     }
 
-    private void process(File out, boolean paste) throws IOException, AWTException, UnsupportedAudioFileException {
+    private String process(File out, boolean paste) throws IOException, UnsupportedAudioFileException {
         long t1 = System.currentTimeMillis();
 
         String response = this.w.transcribe(out);
-        System.out.println("Response: " + response);
+        System.out.println("Response local : " + response);
         long t2 = System.currentTimeMillis();
         System.out.println("Process time  " + (t2 - t1) + " ms");
-        String string = response.trim();
-        if (!string.isEmpty()) {
-            StringSelection stringSelection = new StringSelection(string + "\n");
+        return response.trim();
 
-            // Accède au presse-papier du système
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-
-            // Copie le texte dans le presse-papier
-            clipboard.setContents(stringSelection, null);
-            if (paste) {
-                Robot robot = new Robot();
-                robot.keyPress(KeyEvent.VK_CONTROL);
-                robot.keyPress(KeyEvent.VK_V);
-                robot.keyRelease(KeyEvent.VK_V);
-                robot.keyRelease(KeyEvent.VK_CONTROL);
-            }
-
-        }
-        out.delete();
     }
 
-    private void processRemote(File out, boolean paste) throws IOException, AWTException {
+    private String processRemote(File out, boolean paste) throws IOException {
         long t1 = System.currentTimeMillis();
-
         String string = new RemoteWhisperCPP(this.remoteUrl).transcribe(out, 0.0, 0.01);
-
-        System.out.println("Response: " + string);
+        System.out.println("Response remote : " + string);
         long t2 = System.currentTimeMillis();
         System.out.println("Response  " + (t2 - t1) + " ms");
+        return string.trim();
 
-        if (!string.isEmpty()) {
-
-            StringSelection stringSelection = new StringSelection(string + "\n");
-
-            // Accède au presse-papier du système
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-
-            // Copie le texte dans le presse-papier
-            clipboard.setContents(stringSelection, null);
-            if (paste) {
-                Robot robot = new Robot();
-                robot.keyPress(KeyEvent.VK_CONTROL);
-                robot.keyPress(KeyEvent.VK_V);
-                robot.keyRelease(KeyEvent.VK_V);
-                robot.keyRelease(KeyEvent.VK_CONTROL);
-            }
-
-        }
-        out.delete();
     }
 
     private void stopRecording() {
@@ -525,6 +578,29 @@ public class MisterWhisper implements NativeKeyListener {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "Cannot save preferences");
         }
+    }
+
+    public void addHistoryListener(ChangeListener l) {
+        this.historyListeners.add(l);
+    }
+
+    public void removeHistoryListener(ChangeListener l) {
+        this.historyListeners.remove(l);
+    }
+
+    public void clearHistory() {
+        this.history.clear();
+        fireHistoryChanged();
+    }
+
+    public void fireHistoryChanged() {
+        for (ChangeListener l : this.historyListeners) {
+            l.stateChanged(new ChangeEvent(this));
+        }
+    }
+
+    public List<String> getHistory() {
+        return this.history;
     }
 
     public static void main(String[] args) {
@@ -549,4 +625,5 @@ public class MisterWhisper implements NativeKeyListener {
 
         });
     }
+
 }
