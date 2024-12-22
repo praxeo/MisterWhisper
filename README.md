@@ -5,6 +5,9 @@ MisterWhisper is an open-source application designed to simplify your workflow b
 
 MisterWhisper supports over 100 languages, making it a robust multilingual transcription tool.
 
+![MisterWhisper](https://raw.githubusercontent.com/openconcerto/MisterWhisper/refs/heads/main/tray.png)
+
+
 # Features
 
 - Quick voice transcription: Record and transcribe speech only while the designated key is pressed, like a walkie-talkie.
@@ -27,6 +30,7 @@ MisterWhisper requires a Java runtime to be installed (version 8 or newer)
 
 Keep F8 pressed while talking, the text will be inserted into the currently active software after key release.
 
+To change or access settings, right click on the tray icon.
 
 # Advanced Usage
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
