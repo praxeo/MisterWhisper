@@ -32,6 +32,8 @@ Keep F8 pressed while talking, the text will be inserted into the currently acti
 
 To access the settings or view the history, simply right-click on the icon in the taskbar.
 
+Note: On Windows, everything you need is included in the zip file. However, for Linux and macOS, providing a precompiled WhisperCpp library is not straightforward. You'll need to compile the library yourself and place it in the MisterWhisper folder. Don't worry, MisterWhisper.jar will work perfectly once the libraries are in place.
+
 # Advanced Usage
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
 
