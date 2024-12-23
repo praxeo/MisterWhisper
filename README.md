@@ -30,7 +30,7 @@ MisterWhisper requires a Java runtime to be installed (version 8 or newer)
 
 Keep F8 pressed while talking, the text will be inserted into the currently active software after key release.
 
-To change or access settings, right click on the tray icon.
+To access the settings or view the history, simply right-click on the icon in the taskbar.
 
 # Advanced Usage
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
@@ -47,7 +47,7 @@ MisterWhisper.exe "http://192.168.1.100:9595/inference"
 
 # Acknowledgements
 
-Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Proving that we don't need tons of poor Python software for ai tools.
+Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Demonstrating that we don't need an abundance of low-quality Python software for AI tools.
 
 OpenAI : For the open-source [Whisper](https://github.com/openai/whisper) project.
 
