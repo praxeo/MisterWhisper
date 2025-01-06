@@ -20,17 +20,31 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 
 # Installation
 
-- extract the provided zip file or compile your own version of MisterWhisper
-- download a Whisper model and copy it in the *models* folder from : https://huggingface.co/ggerganov/whisper.cpp/tree/main
+- extract the provided zip (or jar) file or compile your own version of MisterWhisper
+- optionaly, download a Whisper model (.bin file) from : https://huggingface.co/ggerganov/whisper.cpp/tree/main and copy it in the *models* folder 
+(the best model is ggml-large-v3-turbo.bin)
 
-# Usage
-Just launch the *MisterWhisper.exe* (or MisterWhisper.jar).
+# Windows (7,8,10,11..) versions
 
-MisterWhisper requires a Java runtime to be installed (version 8 or newer)
+Download and extract the zip file from the Releases corresponding to your configuration :
+- cpu version : if you have no GPU
+- cuda version : for nVidia GPU
+- vulkan version : should work with any modern GPU (be patient on first launch, shaders compilation takes time)
 
-Keep F8 pressed while talking, the text will be inserted into the currently active software after key release.
+Just launch the *MisterWhisper.exe*.
 
-To change or access settings, right click on the tray icon.
+Keep F9 pressed while talking, the text will be inserted into the currently active software after key release.
+
+To access the settings or view the history, simply right-click on the icon in the taskbar.
+
+# Linux and macOS versions
+
+MisterWhisper requires a Java runtime to be installed (version 8 or newer) to use *MisterWhisper.jar*.
+
+Providing a precompiled WhisperCpp library is not straightforward. 
+
+You'll need to compile the library yourself and place it in the MisterWhisper folder. 
+Don't worry, MisterWhisper.jar will work perfectly once the libraries are in place.
 
 # Advanced Usage
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
@@ -47,7 +61,7 @@ MisterWhisper.exe "http://192.168.1.100:9595/inference"
 
 # Acknowledgements
 
-Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Proving that we don't need tons of poor Python software for ai tools.
+Georgi Gerganov : For its state-of-the-art, efficient [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Demonstrating that we don't need an abundance of low-quality Python software for AI tools.
 
 OpenAI : For the open-source [Whisper](https://github.com/openai/whisper) project.
 
