@@ -54,7 +54,7 @@ Providing a precompiled WhisperCpp library is not straightforward.
 You'll need to compile whisper.cpp and use the client-server mode :
 
 `` 
-whipser-server -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
+whisper-server -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
 ``
 
 And
