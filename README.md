@@ -18,6 +18,14 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 
 - Local or remote : You can use the included Whisper transcription locally or connect to a remote service for transcription.
 
+# Usage
+
+There are two ways to start recording. 
+- press the "F9" (you can change this hotkey) key quickly once to start, and then press F9 again to stop.
+- hold down the F9 key. As soon as you release it, the recording will stop.
+
+Note that the software detects silences and will start the transcription as soon as it detects one.
+
 # Installation
 
 - extract the provided zip (or jar) file or compile your own version of MisterWhisper
@@ -43,10 +51,19 @@ MisterWhisper requires a Java runtime to be installed (version 8 or newer) to us
 
 Providing a precompiled WhisperCpp library is not straightforward. 
 
-You'll need to compile the library yourself and place it in the MisterWhisper folder. 
-Don't worry, MisterWhisper.jar will work perfectly once the libraries are in place.
+You'll need to compile whisper.cpp and use the client-server mode :
 
-# Advanced Usage
+`` 
+whipser-server -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
+``
+
+And
+
+`` 
+java -jar MisterWhisper.jar "http://127.0.0.1:9595/inference"
+``
+
+# Advanced Usage (client-server mode)
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
 
 `` 
