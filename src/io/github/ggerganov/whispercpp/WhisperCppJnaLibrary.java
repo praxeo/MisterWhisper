@@ -412,4 +412,24 @@ public interface WhisperCppJnaLibrary extends Library {
      * @return The result of the benchmark as a string.
      */
     String whisper_bench_ggml_mul_mat_str(int nThreads);
+
+    public static interface whisper_alignment_heads_preset {
+        public static final int WHISPER_AHEADS_NONE = 0;
+
+        public static final int WHISPER_AHEADS_N_TOP_MOST = 1;
+        public static final int WHISPER_AHEADS_CUSTOM = 2;
+        public static final int WHISPER_AHEADS_TINY_EN = 3;
+        public static final int WHISPER_AHEADS_TINY = 4;
+        public static final int WHISPER_AHEADS_BASE_EN = 5;
+        public static final int WHISPER_AHEADS_BASE = 6;
+        public static final int WHISPER_AHEADS_SMALL_EN = 7;
+        public static final int WHISPER_AHEADS_SMALL = 8;
+        public static final int WHISPER_AHEADS_MEDIUM_EN = 9;
+        public static final int WHISPER_AHEADS_MEDIUM = 10;
+        public static final int WHISPER_AHEADS_LARGE_V1 = 11;
+        public static final int WHISPER_AHEADS_LARGE_V2 = 12;
+        public static final int WHISPER_AHEADS_LARGE_V3 = 13;
+        public static final int WHISPER_AHEADS_LARGE_V3_TURBO = (int) 14;
+    };
+
 }
