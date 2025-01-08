@@ -54,7 +54,7 @@ Providing a precompiled WhisperCpp library is not straightforward.
 You'll need to compile whisper.cpp and use the client-server mode :
 
 `` 
-whisper-server -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
+whisper-server --no-timestamps -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
 ``
 
 And
@@ -67,7 +67,7 @@ java -jar MisterWhisper.jar "http://127.0.0.1:9595/inference"
 If you want to use a remote server, launch the *whisper.cpp* server on the remote machine, for example (the server ip is 192.168.1.100) :
 
 `` 
-server.exe -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
+server.exe --no-timestamps -l auto --port 9595 -t 8 -m "models/ggml-large-v3-turbo-q8_0.bin"
 ``
 
 On the local machine, add the remote url as first parameter : 
