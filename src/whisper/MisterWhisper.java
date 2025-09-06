@@ -2,7 +2,9 @@ package whisper;
 
 import java.awt.AWTException;
 import java.awt.CheckboxMenuItem;
+import java.awt.Component;
 import java.awt.Desktop;
+import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.Image;
 import java.awt.Menu;
@@ -49,9 +51,12 @@ import javax.sound.sampled.Line;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.Mixer;
 import javax.sound.sampled.TargetDataLine;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
@@ -95,11 +100,26 @@ public class MisterWhisper implements NativeKeyListener {
 
     // Hotkey for recording
     private String hotkey;
+    private boolean shiftHotkey;
+    private boolean ctrltHotkey;
     private long recordingStartTime = 0;
     private boolean hotkeyPressed;
-    private static final String[] ALLOWED_HOTKEYS = { "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" };
+    // Trigger mode
+    private static final String START_STOP = "start_stop";
+    private static final String PUSH_TO_TALK_DOUBLE_TAP = "push_to_talk_double_tap";
+    private static final String PUSH_TO_TALK = "push_to_talk";
+
+    protected JFrame window;
+    final JButton button = new JButton("Start");
+
+    final JLabel label = new JLabel("Idle");
+
+    private boolean debug;
+
+    private static final String[] ALLOWED_HOTKEYS = { "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18" };
     private static final int[] ALLOWED_HOTKEYS_CODE = { NativeKeyEvent.VC_F1, NativeKeyEvent.VC_F2, NativeKeyEvent.VC_F3, NativeKeyEvent.VC_F4, NativeKeyEvent.VC_F5, NativeKeyEvent.VC_F6,
-            NativeKeyEvent.VC_F7, NativeKeyEvent.VC_F8, NativeKeyEvent.VC_F9, NativeKeyEvent.VC_F10, NativeKeyEvent.VC_F11, NativeKeyEvent.VC_F12 };
+            NativeKeyEvent.VC_F7, NativeKeyEvent.VC_F8, NativeKeyEvent.VC_F9, NativeKeyEvent.VC_F10, NativeKeyEvent.VC_F11, NativeKeyEvent.VC_F12, NativeKeyEvent.VC_F13, NativeKeyEvent.VC_F14,
+            NativeKeyEvent.VC_F15, NativeKeyEvent.VC_F16, NativeKeyEvent.VC_F17, NativeKeyEvent.VC_F18 };
 
     // Action
     enum Action {
@@ -113,6 +133,8 @@ public class MisterWhisper implements NativeKeyListener {
 
         this.prefs = Preferences.userRoot().node("mister-whisper");
         this.hotkey = this.prefs.get("hotkey", "F9");
+        this.shiftHotkey = this.prefs.getBoolean("shift-hotkey", false);
+        this.ctrltHotkey = this.prefs.getBoolean("ctrl-hotkey", false);
         this.model = this.prefs.get("model", "ggml-large-v3-turbo-q8_0.bin");
 
         GlobalScreen.registerNativeHook();
@@ -197,16 +219,8 @@ public class MisterWhisper implements NativeKeyListener {
         this.trayIcon.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseReleased(MouseEvent e) {
-                stopRecording();
-            }
-
-            @Override
-            public void mouseClicked(MouseEvent e) {
-
-                if (e.isPopupTrigger()) {
-                    frame.add(popup);
-                    popup.show(frame, e.getXOnScreen(), e.getYOnScreen());
-
+                if (!e.isPopupTrigger()) {
+                    stopRecording();
                 }
             }
 
@@ -215,8 +229,8 @@ public class MisterWhisper implements NativeKeyListener {
             frame.setResizable(false);
             frame.setVisible(true);
             tray.add(this.trayIcon);
-        } catch (AWTException e) {
-            System.out.println("TrayIcon could not be added.\n" + e.getMessage());
+        } catch (AWTException ex) {
+            System.out.println("TrayIcon could not be added.\n" + ex.getMessage());
         }
 
     }
@@ -238,8 +252,6 @@ public class MisterWhisper implements NativeKeyListener {
 
             @Override
             public void itemStateChanged(ItemEvent e) {
-                System.out.println("==" + e.toString() + " : " + e.getItem().getClass());
-                // autoPaste.getState() + " " + autoType.getState());
                 if (e.getSource().equals(autoPaste) && e.getStateChange() == ItemEvent.SELECTED) {
                     System.out.println("itemStateChanged() PASTE " + e.toString());
                     MisterWhisper.this.prefs.put("action", "paste");
@@ -280,7 +292,47 @@ public class MisterWhisper implements NativeKeyListener {
         });
         popup.add(detectSilece);
         Menu hotkeysMenu = new Menu("Keyboard shortcut");
+        // Shift hotkey modifier
+        final CheckboxMenuItem shiftHotkeyMenuItem = new CheckboxMenuItem("SHIFT");
+        shiftHotkeyMenuItem.setState(this.prefs.getBoolean("shift-hotkey", false));
+        hotkeysMenu.add(shiftHotkeyMenuItem);
+        shiftHotkeyMenuItem.addItemListener(new ItemListener() {
 
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+
+                MisterWhisper.this.shiftHotkey = shiftHotkeyMenuItem.getState();
+                MisterWhisper.this.prefs.putBoolean("shift-hotkey", MisterWhisper.this.shiftHotkey);
+                try {
+                    MisterWhisper.this.prefs.sync();
+                } catch (BackingStoreException e1) {
+                    e1.printStackTrace();
+                    JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + e1.getMessage());
+                }
+                updateToolTip();
+            }
+        });
+        // Ctrl hotkey modifier
+        final CheckboxMenuItem ctrlHotkeyMenuItem = new CheckboxMenuItem("CTRL");
+        ctrlHotkeyMenuItem.setState(this.prefs.getBoolean("ctrl-hotkey", false));
+        hotkeysMenu.add(ctrlHotkeyMenuItem);
+        ctrlHotkeyMenuItem.addItemListener(new ItemListener() {
+
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+
+                MisterWhisper.this.ctrltHotkey = ctrlHotkeyMenuItem.getState();
+                MisterWhisper.this.prefs.putBoolean("ctrl-hotkey", MisterWhisper.this.ctrltHotkey);
+                try {
+                    MisterWhisper.this.prefs.sync();
+                } catch (BackingStoreException e1) {
+                    e1.printStackTrace();
+                    JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + e1.getMessage());
+                }
+                updateToolTip();
+            }
+        });
+        hotkeysMenu.addSeparator();
         for (final String key : MisterWhisper.ALLOWED_HOTKEYS) {
             final CheckboxMenuItem hotkeyMenuItem = new CheckboxMenuItem(key);
             if (this.hotkey.equals(key)) {
@@ -301,7 +353,7 @@ public class MisterWhisper implements NativeKeyListener {
                             JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + e1.getMessage());
                         }
                         hotkeyMenuItem.setState(false);
-                        MisterWhisper.this.trayIcon.setToolTip("Press " + MisterWhisper.this.hotkey + " to record");
+                        updateToolTip();
 
                     }
                 }
@@ -361,6 +413,74 @@ public class MisterWhisper implements NativeKeyListener {
         }
         popup.add(hotkeysMenu);
 
+        final Menu modeMenu = new Menu("Key trigger mode");
+
+        final CheckboxMenuItem pushToTalkItem = new CheckboxMenuItem("Push to talk");
+        final CheckboxMenuItem pushToTalkDoubleTapItem = new CheckboxMenuItem("Push to talk + double tap");
+        final CheckboxMenuItem startStopItem = new CheckboxMenuItem("Start / Stop");
+
+        String currentMode = this.prefs.get("trigger-mode", PUSH_TO_TALK);
+
+        pushToTalkItem.setState(PUSH_TO_TALK.equals(currentMode));
+        pushToTalkDoubleTapItem.setState(PUSH_TO_TALK_DOUBLE_TAP.equals(currentMode));
+        startStopItem.setState(START_STOP.equals(currentMode));
+
+        if (!pushToTalkItem.getState() && !pushToTalkDoubleTapItem.getState() && !startStopItem.getState()) {
+            pushToTalkItem.setState(true);
+            MisterWhisper.this.prefs.put("trigger-mode", PUSH_TO_TALK);
+            try {
+                MisterWhisper.this.prefs.sync();
+            } catch (BackingStoreException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + ex.getMessage());
+            }
+        }
+
+        final ItemListener modeListener = new ItemListener() {
+
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                CheckboxMenuItem source = (CheckboxMenuItem) e.getSource();
+                if (source == pushToTalkItem && e.getStateChange() == ItemEvent.SELECTED) {
+                    pushToTalkItem.setState(true);
+                    pushToTalkDoubleTapItem.setState(false);
+                    startStopItem.setState(false);
+                    MisterWhisper.this.prefs.put("trigger-mode", PUSH_TO_TALK);
+                } else if (source == pushToTalkDoubleTapItem && e.getStateChange() == ItemEvent.SELECTED) {
+                    pushToTalkItem.setState(false);
+                    pushToTalkDoubleTapItem.setState(true);
+                    startStopItem.setState(false);
+                    MisterWhisper.this.prefs.put("trigger-mode", PUSH_TO_TALK_DOUBLE_TAP);
+                } else if (source == startStopItem && e.getStateChange() == ItemEvent.SELECTED) {
+                    pushToTalkItem.setState(false);
+                    pushToTalkDoubleTapItem.setState(false);
+                    startStopItem.setState(true);
+                    MisterWhisper.this.prefs.put("trigger-mode", START_STOP);
+                } else {
+                    // Default to push to talk
+                    pushToTalkItem.setState(true);
+                    pushToTalkDoubleTapItem.setState(false);
+                    startStopItem.setState(false);
+                    MisterWhisper.this.prefs.put("trigger-mode", PUSH_TO_TALK);
+                }
+                try {
+                    MisterWhisper.this.prefs.sync();
+                } catch (BackingStoreException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + ex.getMessage());
+                }
+            }
+        };
+
+        pushToTalkItem.addItemListener(modeListener);
+        pushToTalkDoubleTapItem.addItemListener(modeListener);
+        startStopItem.addItemListener(modeListener);
+
+        modeMenu.add(pushToTalkItem);
+        modeMenu.add(pushToTalkDoubleTapItem);
+        modeMenu.add(startStopItem);
+
+        popup.add(modeMenu);
         final Menu audioInputsItem = new Menu("Audio inputs");
         String audioDevice = this.prefs.get("audio.device", "");
         String previsouAudipDevice = this.prefs.get("audio.device.previous", "");
@@ -419,6 +539,37 @@ public class MisterWhisper implements NativeKeyListener {
             }
         }
         popup.add(audioInputsItem);
+
+        CheckboxMenuItem openWindowItem = new CheckboxMenuItem("Open Window");
+        openWindowItem.setState(this.prefs.getBoolean("open-window", true));
+        openWindowItem.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                boolean state = openWindowItem.getState();
+                MisterWhisper.this.prefs.putBoolean("open-window", state);
+                try {
+                    MisterWhisper.this.prefs.sync();
+                } catch (BackingStoreException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(null, "Cannot save preferences\n" + ex.getMessage());
+                }
+                if (state) {
+                    if (MisterWhisper.this.window == null || !MisterWhisper.this.window.isVisible()) {
+                        MisterWhisper.this.openWindow();
+                    }
+                    if (MisterWhisper.this.window != null) {
+                        MisterWhisper.this.window.toFront();
+                        MisterWhisper.this.window.requestFocus();
+                    }
+                } else {
+                    if (MisterWhisper.this.window != null && MisterWhisper.this.window.isVisible()) {
+                        MisterWhisper.this.window.setVisible(false);
+                    }
+                }
+
+            }
+        });
+        popup.add(openWindowItem);
         final MenuItem historyItem = new MenuItem("History");
 
         popup.add(historyItem);
@@ -438,14 +589,26 @@ public class MisterWhisper implements NativeKeyListener {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                HistoryFrame f = new HistoryFrame(MisterWhisper.this);
-                f.setSize(600, 800);
-                f.setLocationRelativeTo(null);
-                f.setVisible(true);
+                showHistory();
 
             }
         });
         return popup;
+    }
+
+    protected void updateToolTip() {
+        String tooltip = "Press ";
+        if (MisterWhisper.this.shiftHotkey) {
+            tooltip += "Shift + ";
+        }
+        if (MisterWhisper.this.ctrltHotkey) {
+            tooltip += "Ctrl + ";
+        }
+        tooltip += MisterWhisper.this.hotkey + " to record";
+        if (this.trayIcon != null) {
+            MisterWhisper.this.trayIcon.setToolTip(tooltip);
+        }
+        System.out.println(tooltip);
     }
 
     private List<String> getInputsMixerNames() {
@@ -525,11 +688,21 @@ public class MisterWhisper implements NativeKeyListener {
         if (this.hotkeyPressed) {
             return;
         }
-
+        int modifier = 0;
+        if (this.shiftHotkey) {
+            modifier += 1;
+        }
+        if (this.ctrltHotkey) {
+            modifier += 2;
+        }
+        if (e.getModifiers() != modifier) {
+            return;
+        }
         final int length = MisterWhisper.ALLOWED_HOTKEYS_CODE.length;
         for (int i = 0; i < length; i++) {
             if (MisterWhisper.ALLOWED_HOTKEYS_CODE[i] == e.getKeyCode() && this.hotkey.equals(MisterWhisper.ALLOWED_HOTKEYS[i])) {
                 this.hotkeyPressed = true;
+
                 SwingUtilities.invokeLater(new Runnable() {
 
                     @Override
@@ -558,6 +731,17 @@ public class MisterWhisper implements NativeKeyListener {
 
     @Override
     public void nativeKeyReleased(NativeKeyEvent e) {
+        int modifier = 0;
+        if (this.shiftHotkey) {
+            modifier += 1;
+        }
+        if (this.ctrltHotkey) {
+            modifier += 2;
+        }
+        if (e.getModifiers() != modifier) {
+            return;
+        }
+
         final int length = MisterWhisper.ALLOWED_HOTKEYS_CODE.length;
         for (int i = 0; i < length; i++) {
             if (MisterWhisper.ALLOWED_HOTKEYS_CODE[i] == e.getKeyCode() && this.hotkey.equals(MisterWhisper.ALLOWED_HOTKEYS[i])) {
@@ -567,9 +751,15 @@ public class MisterWhisper implements NativeKeyListener {
 
                     @Override
                     public void run() {
-                        long delta = System.currentTimeMillis() - MisterWhisper.this.recordingStartTime;
-                        if (delta > 300) {
+
+                        String currentMode = MisterWhisper.this.prefs.get("trigger-mode", PUSH_TO_TALK);
+                        if (currentMode.equals(PUSH_TO_TALK)) {
                             stopRecording();
+                        } else if (currentMode.equals(PUSH_TO_TALK_DOUBLE_TAP)) {
+                            long delta = System.currentTimeMillis() - MisterWhisper.this.recordingStartTime;
+                            if (delta > 300) {
+                                stopRecording();
+                            }
                         }
                     }
                 });
@@ -645,7 +835,11 @@ public class MisterWhisper implements NativeKeyListener {
 
                                                 @Override
                                                 public void run() {
-                                                    transcribe(audioData, action, false);
+                                                    try {
+                                                        transcribe(audioData, action, false);
+                                                    } catch (IOException e) {
+                                                        e.printStackTrace();
+                                                    }
                                                 }
                                             });
                                         } else {
@@ -686,7 +880,11 @@ public class MisterWhisper implements NativeKeyListener {
 
                             @Override
                             public void run() {
-                                transcribe(audioData, action, true);
+                                try {
+                                    transcribe(audioData, action, true);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                             }
                         });
 
@@ -707,8 +905,11 @@ public class MisterWhisper implements NativeKeyListener {
         }
     }
 
-    public void transcribe(byte[] audioData, final Action action, boolean isEndOfCapture) {
+    public void transcribe(byte[] audioData, final Action action, boolean isEndOfCapture) throws IOException {
         if (detectSilence(audioData, audioData.length, 100)) {
+            if (this.debug) {
+                System.out.println("Silence detected");
+            }
             return;
         }
         if (audioData.length < MIN_AUDIO_DATA_LENGTH) {
@@ -719,114 +920,122 @@ public class MisterWhisper implements NativeKeyListener {
 
         setTranscribing(true);
 
-        // Save the recorded audio to a WAV file
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String fileName = timestamp + ".wav";
-
-        try (AudioInputStream audioInputStream = new AudioInputStream(new ByteArrayInputStream(audioData), this.audioFormat, audioData.length / this.audioFormat.getFrameSize())) {
-
+        String str;
+        if (MisterWhisper.this.remoteUrl == null) {
+            str = this.w.transcribeRaw(audioData);
+        } else {
+            // Save the recorded audio to a WAV file for remote
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String fileName = timestamp + ".wav";
             final File out = File.createTempFile("rec_", fileName);
-            AudioSystem.write(audioInputStream, AudioFileFormat.Type.WAVE, out);
-
-            String str;
-            if (MisterWhisper.this.remoteUrl == null) {
-                str = process(out, action);
-            } else {
+            try (AudioInputStream audioInputStream = new AudioInputStream(new ByteArrayInputStream(audioData), this.audioFormat, audioData.length / this.audioFormat.getFrameSize())) {
+                AudioSystem.write(audioInputStream, AudioFileFormat.Type.WAVE, out);
                 str = processRemote(out, action);
-            }
-            str = str.replace('\n', ' ');
-            str = str.replace('\r', ' ');
-            str = str.replace('\t', ' ');
-            str = str.trim();
-            if (!isEndOfCapture) {
-                str += " ";
-            }
-            final String finalStr = str;
-
-            SwingUtilities.invokeLater(new Runnable() {
-
-                @Override
-                public void run() {
-                    if (action.equals(Action.TYPE_STRING)) {
-                        try {
-                            RobotTyper typer = new RobotTyper();
-                            System.out.println("Typing : " + finalStr);
-                            typer.typeString(finalStr, 11);
-                        } catch (AWTException e) {
-                            e.printStackTrace();
-                        }
-                    } else if (action.equals(Action.COPY_TO_CLIPBOARD_AND_PASTE)) {
-                        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                        Transferable previous;
-                        try {
-                            previous = clipboard.getContents(null);
-                        } catch (Exception e) {
-                            previous = null;
-                            try {
-                                GlobalScreen.registerNativeHook();
-                            } catch (NativeHookException e1) {
-                                e1.printStackTrace();
-                            }
-                            System.out.println("Warning : cannot get previous clipboard content");
-                        }
-                        final Transferable toPaste = previous;
-                        clipboard.setContents(new StringSelection(finalStr), null);
-                        try {
-                            Robot robot = new Robot();
-                            System.out.println("Pasting : " + finalStr);
-                            robot.keyPress(KeyEvent.VK_CONTROL);
-                            robot.keyPress(KeyEvent.VK_V);
-                            try {
-                                Thread.sleep(20);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            robot.keyRelease(KeyEvent.VK_V);
-                            robot.keyRelease(KeyEvent.VK_CONTROL);
-                            System.out.println("Pasting : " + finalStr + " DONE");
-
-                        } catch (AWTException e) {
-                            e.printStackTrace();
-                        }
-                        if (toPaste != null) {
-                            Thread t = new Thread(new Runnable() {
-                                public void run() {
-                                    if (toPaste != null) {
-                                        try {
-                                            Thread.sleep(1000);
-                                        } catch (InterruptedException e) {
-                                            e.printStackTrace();
-                                        }
-                                        System.out.println("Restoring previous clipboard content");
-                                        clipboard.setContents(toPaste, null);
-
-                                    }
-                                }
-                            });
-                            t.start();
-                        }
-
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(null, "Error processing record : " + e.getMessage());
+                e.printStackTrace();
+                setTranscribing(false);
+                return;
+            } finally {
+                if (this.debug) {
+                    System.out.println("Audio record stored in : " + out.getAbsolutePath());
+                } else {
+                    boolean deleted = out.delete();
+                    if (!deleted) {
+                        Logger.getGlobal().warning("cannot delete " + out.getAbsolutePath());
                     }
-                    // Invoke later to be sure paste is done
-                    SwingUtilities.invokeLater(new Runnable() {
-
-                        @Override
-                        public void run() {
-                            MisterWhisper.this.history.add(finalStr);
-                            fireHistoryChanged();
-                        }
-                    });
                 }
-            });
-
-            boolean deleted = out.delete();
-            if (!deleted) {
-                Logger.getGlobal().warning("cannot delete " + out.getAbsolutePath());
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Error processing record : " + e.getMessage());
-            e.printStackTrace();
         }
+        str = str.replace('\n', ' ');
+        str = str.replace('\r', ' ');
+        str = str.replace('\t', ' ');
+        str = str.trim();
+        final String suffix = "Thank you.";
+        if (str.endsWith(suffix)) {
+            str = str.substring(0, str.length() - suffix.length());
+        }
+
+        if (!isEndOfCapture) {
+            str += " ";
+        }
+        final String finalStr = str;
+
+        SwingUtilities.invokeLater(new Runnable() {
+
+            @Override
+            public void run() {
+                if (action.equals(Action.TYPE_STRING)) {
+                    try {
+                        RobotTyper typer = new RobotTyper();
+                        System.out.println("Typing : " + finalStr);
+                        typer.typeString(finalStr, 11);
+                    } catch (AWTException e) {
+                        e.printStackTrace();
+                    }
+                } else if (action.equals(Action.COPY_TO_CLIPBOARD_AND_PASTE)) {
+                    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                    Transferable previous;
+                    try {
+                        previous = clipboard.getContents(null);
+                    } catch (Exception e) {
+                        previous = null;
+                        try {
+                            GlobalScreen.registerNativeHook();
+                        } catch (NativeHookException e1) {
+                            e1.printStackTrace();
+                        }
+                        System.out.println("Warning : cannot get previous clipboard content");
+                    }
+                    final Transferable toPaste = previous;
+                    clipboard.setContents(new StringSelection(finalStr), null);
+                    try {
+                        Robot robot = new Robot();
+                        System.out.println("Pasting : " + finalStr);
+                        robot.keyPress(KeyEvent.VK_CONTROL);
+                        robot.keyPress(KeyEvent.VK_V);
+                        try {
+                            Thread.sleep(20);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        robot.keyRelease(KeyEvent.VK_V);
+                        robot.keyRelease(KeyEvent.VK_CONTROL);
+                        System.out.println("Pasting : " + finalStr + " DONE");
+
+                    } catch (AWTException e) {
+                        e.printStackTrace();
+                    }
+                    if (toPaste != null) {
+                        Thread t = new Thread(new Runnable() {
+                            public void run() {
+                                if (toPaste != null) {
+                                    try {
+                                        Thread.sleep(1000);
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
+                                    System.out.println("Restoring previous clipboard content");
+                                    clipboard.setContents(toPaste, null);
+
+                                }
+                            }
+                        });
+                        t.start();
+                    }
+
+                }
+                // Invoke later to be sure paste is done
+                SwingUtilities.invokeLater(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        MisterWhisper.this.history.add(finalStr);
+                        fireHistoryChanged();
+                    }
+                });
+            }
+        });
 
         setTranscribing(false);
 
@@ -855,15 +1064,43 @@ public class MisterWhisper implements NativeKeyListener {
 
             @Override
             public void run() {
-                if (isRecording()) {
-                    MisterWhisper.this.trayIcon.setImage(MisterWhisper.this.imageRecording);
-                } else {
-                    if (isTranscribing()) {
-                        MisterWhisper.this.trayIcon.setImage(MisterWhisper.this.imageTranscribing);
+                if (MisterWhisper.this.window != null) {
+                    if (isRecording()) {
+                        MisterWhisper.this.button.setText("Stop");
+                        MisterWhisper.this.label.setText("Recording");
                     } else {
-                        MisterWhisper.this.trayIcon.setImage(MisterWhisper.this.imageInactive);
+                        MisterWhisper.this.button.setText("Start");
+
+                        if (isTranscribing()) {
+                            MisterWhisper.this.label.setText("Transcribing");
+                        } else {
+                            MisterWhisper.this.label.setText("Idle");
+                        }
+
+                    }
+                    if (isRecording()) {
+                        MisterWhisper.this.window.setIconImage(MisterWhisper.this.imageRecording);
+                    } else {
+                        if (isTranscribing()) {
+                            MisterWhisper.this.window.setIconImage(MisterWhisper.this.imageTranscribing);
+                        } else {
+                            MisterWhisper.this.window.setIconImage(MisterWhisper.this.imageInactive);
+                        }
+
                     }
 
+                }
+                if (MisterWhisper.this.trayIcon != null) {
+                    if (isRecording()) {
+                        MisterWhisper.this.trayIcon.setImage(MisterWhisper.this.imageRecording);
+                    } else {
+                        if (isTranscribing()) {
+                            MisterWhisper.this.trayIcon.setImage(MisterWhisper.this.imageTranscribing);
+                        } else {
+                            MisterWhisper.this.trayIcon.setImage(MisterWhisper.this.imageInactive);
+                        }
+
+                    }
                 }
 
             }
@@ -871,23 +1108,11 @@ public class MisterWhisper implements NativeKeyListener {
 
     }
 
-    private String process(File out, Action action) throws IOException, UnsupportedAudioFileException {
-        long t1 = System.currentTimeMillis();
-
-        String response = this.w.transcribe(out);
-        System.out.println("Response local : " + response);
-        long t2 = System.currentTimeMillis();
-        System.out.println("Process time  " + (t2 - t1) + " ms");
-        return response.trim();
-
-    }
-
     private String processRemote(File out, Action action) throws IOException {
         long t1 = System.currentTimeMillis();
         String string = new RemoteWhisperCPP(this.remoteUrl).transcribe(out, 0.0, 0.01);
-        System.out.println("Response remote : " + string);
         long t2 = System.currentTimeMillis();
-        System.out.println("Response  " + (t2 - t1) + " ms");
+        System.out.println("Response from remote whisper.cpp (" + (t2 - t1) + " ms): " + string);
         return string.trim();
 
     }
@@ -919,6 +1144,9 @@ public class MisterWhisper implements NativeKeyListener {
     }
 
     public void clearHistory() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalAccessError("Must be called from EDT");
+        }
         this.history.clear();
         fireHistoryChanged();
     }
@@ -942,18 +1170,119 @@ public class MisterWhisper implements NativeKeyListener {
                 e.printStackTrace();
             }
             try {
+                Boolean debug = false;
                 String url = null;
-                if (args.length >= 1 && !args[0].startsWith("-D")) {
-                    url = args[0];
+                boolean forceOpenWindow = false;
+                for (int i = 0; i < args.length; i++) {
+                    final String arg = args[i];
+                    if (!arg.startsWith("-D")) {
+
+                        if (arg.startsWith("http")) {
+                            url = arg;
+                        } else if (arg.equals("--window")) {
+                            forceOpenWindow = true;
+                        } else if (arg.equals("--debug")) {
+                            debug = true;
+                        }
+                    }
                 }
-                MisterWhisper r = new MisterWhisper(url);
-                r.createTrayIcon();
+                final MisterWhisper r = new MisterWhisper(url);
+                r.debug = debug;
+                boolean openWindow = r.prefs.getBoolean("open-window", true);
+                if (forceOpenWindow) {
+                    openWindow = true;
+                }
+                try {
+                    r.createTrayIcon();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                if (openWindow) {
+                    r.openWindow();
+                }
+
             } catch (Throwable e) {
                 JOptionPane.showMessageDialog(null, "Error :\n" + e.getMessage());
                 e.printStackTrace();
             }
         });
 
+    }
+
+    private void openWindow() {
+        this.window = new JFrame("MisterWhisper");
+        this.window.setIconImage(this.imageInactive);
+        this.window.setFocusable(false);
+        this.window.setFocusableWindowState(false);
+        JPanel p = new JPanel();
+        p.setLayout(new FlowLayout(FlowLayout.RIGHT));
+        p.add(this.label);
+        p.add(this.button);
+
+        final JButton historyButton = new JButton("History");
+        p.add(historyButton);
+
+        final JButton prefButton = new JButton("Prefs");
+        p.add(prefButton);
+        this.window.setContentPane(p);
+        this.label.setText("Transcribing..");
+        this.window.pack();
+        this.label.setText("Idle");
+        this.window.setResizable(false);
+        this.window.setVisible(true);
+        this.window.setLocationRelativeTo(null);
+        this.window.setVisible(true);
+        this.window.toFront();
+        this.window.requestFocus();
+        final PopupMenu popup = createPopupMenu();
+        prefButton.add(popup);
+        this.button.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                final String strAction = MisterWhisper.this.prefs.get("action", "paste");
+                Action action = Action.NOTHING;
+                if (strAction.equals("paste")) {
+                    action = Action.COPY_TO_CLIPBOARD_AND_PASTE;
+                } else if (strAction.equals("type")) {
+                    action = Action.TYPE_STRING;
+                }
+
+                if (!isRecording()) {
+                    MisterWhisper.this.recordingStartTime = System.currentTimeMillis();
+                    startRecording(action);
+                } else {
+                    stopRecording();
+                }
+
+            }
+        });
+        historyButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showHistory();
+            }
+        });
+
+        prefButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                popup.show((Component) e.getSource(), 0, 0);
+
+            }
+        });
+
+    }
+
+    public void showHistory() {
+        HistoryFrame f = new HistoryFrame(MisterWhisper.this);
+        f.setSize(600, 800);
+        f.setLocationRelativeTo(null);
+        f.setVisible(true);
     }
 
     private static boolean detectSilence(byte[] buffer, int bytesRead, int threshold) {
@@ -963,9 +1292,7 @@ public class MisterWhisper implements NativeKeyListener {
             int sample = (buffer[i + 1] << 8) | (buffer[i] & 0xFF);
             maxAmplitude = Math.max(maxAmplitude, Math.abs(sample));
         }
-        if (maxAmplitude > threshold) {
-            System.out.println("MisterWhisper.detectSilence() NOT SILENCE : " + maxAmplitude);
-        }
+
         return maxAmplitude < threshold;
     }
 }

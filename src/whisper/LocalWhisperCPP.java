@@ -38,8 +38,8 @@ public class LocalWhisperCPP {
             int r = audioInputStream.read(b);
 
             for (int i = 0, j = 0; i < r; i += 2, j++) {
-                int intSample = (int) (b[i + 1]) << 8 | (int) (b[i]) & 0xFF;
-                floats[j] = intSample / 32767.0f;
+                short sample = (short) (((b[i + 1] & 0xFF) << 8) | (b[i] & 0xFF));
+                floats[j] = sample / 32768.0f;
             }
 
             result = whisper.fullTranscribe(params, floats);
@@ -48,6 +48,25 @@ public class LocalWhisperCPP {
             audioInputStream.close();
         }
         return result;
+    }
+
+    public String transcribeRaw(byte[] pcmData) throws IOException {
+        int numSamples = pcmData.length / 2;
+        float[] floats = new float[numSamples];
+
+        for (int i = 0, j = 0; i < pcmData.length; i += 2, j++) {
+            short sample = (short) (((pcmData[i + 1] & 0xFF) << 8) | (pcmData[i] & 0xFF));
+            floats[j] = sample / 32768.0f;
+        }
+
+        WhisperFullParams params = whisper.getFullDefaultParams(WhisperSamplingStrategy.WHISPER_SAMPLING_BEAM_SEARCH);
+        params.setProgressCallback((ctx, state, progress, user_data) -> System.out.println("progress: " + progress));
+        params.print_progress = CBool.FALSE;
+        params.language = "auto";
+
+        params.n_threads = Runtime.getRuntime().availableProcessors();
+
+        return whisper.fullTranscribe(params, floats);
     }
 
     public static void main(String[] args) throws Exception {

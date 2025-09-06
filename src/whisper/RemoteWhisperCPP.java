@@ -112,7 +112,7 @@ public class RemoteWhisperCPP {
             long t1 = System.currentTimeMillis();
             RemoteWhisperCPP w = new RemoteWhisperCPP(requestURL);
 
-            String response = w.transcribe(new File("jfk.wav"), 0.0, 0.2);
+            String response = w.transcribe(new File("rec_1134105638153185080720250906_194401.wav"), 0.0, 0.2);
             System.out.println("Response: " + response);
             long t2 = System.currentTimeMillis();
             System.out.println("Response  " + (t2 - t1) + " ms");
