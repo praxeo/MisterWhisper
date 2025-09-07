@@ -1,7 +1,7 @@
 # MisterWhisper
  
 
-MisterWhisper is an open-source application designed to simplify your workflow by transforming spoken words into text in real-time. When you press a designated key (F1 to F12), the application records your voice, transcribes it using the powerful Whisper AI model (GPU-accelerated for fast and efficient recognition), and directly inputs the resulting text into the currently active software.
+MisterWhisper is an open-source application designed to simplify your workflow by transforming spoken words into text in real-time. When you press a designated key (F1 to F18), the application records your voice, transcribes it using the powerful Whisper AI model (GPU-accelerated for fast and efficient recognition), and directly inputs the resulting text into the currently active software.
 
 MisterWhisper supports over 100 languages, making it a robust multilingual transcription tool.
 
