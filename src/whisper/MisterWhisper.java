@@ -68,6 +68,9 @@ import com.github.kwhat.jnativehook.NativeHookException;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 
+import whisper.api.CloudSpeechAPI;
+import whisper.api.VoxtralTranscriptionService;
+
 public class MisterWhisper implements NativeKeyListener {
 
     private static final int MIN_AUDIO_DATA_LENGTH = (int) (16000 * 2.1);
@@ -78,6 +81,9 @@ public class MisterWhisper implements NativeKeyListener {
     private LocalWhisperCPP w;
     private String model;
     private String remoteUrl;
+
+    // Cloud API integration
+    private CloudSpeechAPI cloudSpeechAPI;
     // Tray icon
     private TrayIcon trayIcon;
     private Image imageRecording;
@@ -136,6 +142,9 @@ public class MisterWhisper implements NativeKeyListener {
         this.shiftHotkey = this.prefs.getBoolean("shift-hotkey", false);
         this.ctrltHotkey = this.prefs.getBoolean("ctrl-hotkey", false);
         this.model = this.prefs.get("model", "ggml-large-v3-turbo-q8_0.bin");
+
+        // Initialize cloud API
+        this.cloudSpeechAPI = new VoxtralTranscriptionService();
 
         GlobalScreen.registerNativeHook();
         GlobalScreen.addNativeKeyListener(this);
@@ -921,8 +930,17 @@ public class MisterWhisper implements NativeKeyListener {
         setTranscribing(true);
 
         String str;
-        if (MisterWhisper.this.remoteUrl == null) {
+        if (MisterWhisper.this.remoteUrl == null && this.cloudSpeechAPI == null) {
             str = this.w.transcribeRaw(audioData);
+        } else if (this.cloudSpeechAPI != null && this.cloudSpeechAPI.isConfigured()) {
+            try {
+                str = this.cloudSpeechAPI.transcribe(audioData);
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(null, "Error with cloud transcription: " + e.getMessage());
+                e.printStackTrace();
+                setTranscribing(false);
+                return;
+            }
         } else {
             // Save the recorded audio to a WAV file for remote
             String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
