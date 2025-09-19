@@ -1,0 +1,140 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation fileTree(dir: 'lib', include: ['*.jar'])
+}
+
+application {
+    mainClass = 'whisper.MisterWhisper'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+            exclude '**/*.png'
+        }
+        resources {
+            srcDirs = ['src']
+            include 'whisper/**/*.png'
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'whisper.MisterWhisper'
+        )
+    }
+}
+
+task buildInstaller(type: Copy) {
+    dependsOn jar
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+    // App jar
+    from(jar.archiveFile) {
+        rename { "MisterWhisper.jar" }
+    }
+
+    // Bundle libs into lib/
+    from('lib') {
+        into 'lib'
+    }
+
+    // NSIS script
+    from('build/windows') {
+        include 'installer.nsi'
+    }
+
+    into "${buildDir}/windows-installer"
+
+    doLast {
+        // Ensure models dir exists
+        file("${buildDir}/windows-installer/models").mkdirs()
+
+        // Optionally copy LICENSE
+        def licenseFile = file("LICENSE")
+        if (licenseFile.exists()) {
+            copy {
+                from licenseFile
+                into "${buildDir}/windows-installer"
+            }
+        }
+
+        // Optionally copy a bundled JRE into staging if present at project root ./jre
+        def jreDir = file("jre")
+        if (jreDir.exists()) {
+            copy {
+                from jreDir
+                into "${buildDir}/windows-installer/jre"
+            }
+            println "Bundled JRE copied to staging."
+        } else {
+            println "No bundled JRE found at ./jre. The installer will rely on system Java unless a JRE is added."
+        }
+
+        // Create a robust Windows launcher that prefers a bundled JRE
+        def runBat = file("${buildDir}/windows-installer/run.bat")
+        runBat.text = """@echo off
+setlocal ENABLEDELAYEDEXPANSION
+set "SCRIPT_DIR=%~dp0"
+set "JRE_DIR=!SCRIPT_DIR!jre"
+
+if exist "!JRE_DIR!\\bin\\java.exe" (
+  set "JAVA_EXE=!JRE_DIR!\\bin\\java.exe"
+) else (
+  where java >nul 2>&1
+  if %ERRORLEVEL% EQU 0 (
+    for /f "delims=" %%i in ('where java') do (
+      set "JAVA_EXE=%%i"
+      goto have_java
+    )
+  ) else (
+    echo Java runtime not found. Install Java 8+ or bundle a JRE in a "jre" folder next to this script.
+    pause
+    exit /b 1
+  )
+)
+:have_java
+set "CLASSPATH=!SCRIPT_DIR!MisterWhisper.jar;!SCRIPT_DIR!lib\\jna.jar;!SCRIPT_DIR!lib\\win32-x86-64.jar;!SCRIPT_DIR!lib\\jnativehook-2.2.2.jar"
+"!JAVA_EXE!" -cp "!CLASSPATH!" whisper.MisterWhisper %*
+endlocal
+"""
+
+        // Build the installer with NSIS (only if makensis is available)
+        def hasMakensis = false
+        try {
+            if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+                def p = ['cmd', '/c', 'where makensis'].execute()
+                p.waitFor()
+                hasMakensis = (p.exitValue() == 0)
+            } else {
+                def p = ['bash', '-lc', 'command -v makensis'].execute()
+                p.waitFor()
+                hasMakensis = (p.exitValue() == 0)
+            }
+        } catch (Exception ignore) {
+            hasMakensis = false
+        }
+
+        if (hasMakensis) {
+            exec {
+                workingDir "${buildDir}/windows-installer"
+                commandLine 'makensis', 'installer.nsi'
+            }
+            println "Installer created at ${buildDir}/windows-installer/MisterWhisper_Installer.exe"
+        } else {
+            println "makensis not found; skipped NSIS build. Staged installer files at: ${buildDir}/windows-installer"
+            println "To produce the EXE, install NSIS and run: makensis installer.nsi (from ${buildDir}/windows-installer)"
+        }
+    }
+}

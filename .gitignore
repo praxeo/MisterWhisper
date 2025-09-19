@@ -1,0 +1,25 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# Gradle
+.gradle/
+# Ignore all build outputs by default
+build/
+# But keep the NSIS installer script we author under build/windows
+!build/windows/
+build/windows/*
+!build/windows/installer.nsi
+
+# Distribution artifacts
+build/distributions/
+build/windows-installer/*.exe
+
+# Misc
+out/

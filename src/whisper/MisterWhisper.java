@@ -69,6 +69,7 @@ import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 
 import whisper.api.CloudSpeechAPI;
+import whisper.api.OpenAISpeechAPI;
 import whisper.api.VoxtralTranscriptionService;
 
 public class MisterWhisper implements NativeKeyListener {
@@ -144,7 +145,12 @@ public class MisterWhisper implements NativeKeyListener {
         this.model = this.prefs.get("model", "ggml-large-v3-turbo-q8_0.bin");
 
         // Initialize cloud API
-        this.cloudSpeechAPI = new VoxtralTranscriptionService();
+        String service = this.prefs.get("service", "local");
+        if (service.equals("openai")) {
+            this.cloudSpeechAPI = new OpenAISpeechAPI();
+        } else if (service.equals("voxtral")) {
+            this.cloudSpeechAPI = new VoxtralTranscriptionService();
+        }
 
         GlobalScreen.registerNativeHook();
         GlobalScreen.addNativeKeyListener(this);
@@ -369,7 +375,47 @@ public class MisterWhisper implements NativeKeyListener {
             });
         }
 
-        if (this.remoteUrl == null) {
+        Menu serviceMenu = new Menu("Service");
+        popup.add(serviceMenu);
+
+        CheckboxMenuItem localServiceItem = new CheckboxMenuItem("Local");
+        CheckboxMenuItem voxtralServiceItem = new CheckboxMenuItem("Voxtral");
+        CheckboxMenuItem openAIServiceItem = new CheckboxMenuItem("OpenAI");
+        serviceMenu.add(localServiceItem);
+        serviceMenu.add(voxtralServiceItem);
+        serviceMenu.add(openAIServiceItem);
+
+        String currentService = this.prefs.get("service", "local");
+        localServiceItem.setState(currentService.equals("local"));
+        voxtralServiceItem.setState(currentService.equals("voxtral"));
+        openAIServiceItem.setState(currentService.equals("openai"));
+
+        ItemListener serviceListener = e -> {
+            CheckboxMenuItem item = (CheckboxMenuItem) e.getSource();
+            if (item.getState()) {
+                localServiceItem.setState(item == localServiceItem);
+                voxtralServiceItem.setState(item == voxtralServiceItem);
+                openAIServiceItem.setState(item == openAIServiceItem);
+
+                String service = "local";
+                if (item == voxtralServiceItem) service = "voxtral";
+                if (item == openAIServiceItem) service = "openai";
+                this.prefs.put("service", service);
+                try {
+                    this.prefs.sync();
+                } catch (BackingStoreException ex) {
+                    ex.printStackTrace();
+                }
+                JOptionPane.showMessageDialog(null, "Please restart the application to apply the new service.");
+            }
+        };
+
+        localServiceItem.addItemListener(serviceListener);
+        voxtralServiceItem.addItemListener(serviceListener);
+        openAIServiceItem.addItemListener(serviceListener);
+
+
+        if (this.remoteUrl == null && this.cloudSpeechAPI == null) {
             Menu modelMenu = new Menu("Models");
 
             final File dir = new File("models");
@@ -419,6 +465,36 @@ public class MisterWhisper implements NativeKeyListener {
             }
 
             popup.add(modelMenu);
+        } else if (this.cloudSpeechAPI instanceof OpenAISpeechAPI) {
+            Menu openAIMenu = new Menu("OpenAI Config");
+            popup.add(openAIMenu);
+
+            MenuItem apiKeyItem = new MenuItem("Set API Key");
+            apiKeyItem.addActionListener(e -> {
+                String key = JOptionPane.showInputDialog("Enter OpenAI API Key:", this.prefs.get("openai.api.key", ""));
+                if (key != null) {
+                    ((OpenAISpeechAPI) this.cloudSpeechAPI).setApiKey(key);
+                }
+            });
+            openAIMenu.add(apiKeyItem);
+
+            MenuItem apiUrlItem = new MenuItem("Set API URL");
+            apiUrlItem.addActionListener(e -> {
+                String url = JOptionPane.showInputDialog("Enter OpenAI API URL:", this.prefs.get("openai.api.url", "https://api.openai.com/v1/audio/transcriptions"));
+                if (url != null) {
+                    ((OpenAISpeechAPI) this.cloudSpeechAPI).setApiUrl(url);
+                }
+            });
+            openAIMenu.add(apiUrlItem);
+
+            MenuItem modelItem = new MenuItem("Set Model");
+            modelItem.addActionListener(e -> {
+                String model = JOptionPane.showInputDialog("Enter Model:", this.prefs.get("openai.model", "whisper-1"));
+                if (model != null) {
+                    ((OpenAISpeechAPI) this.cloudSpeechAPI).setModel(model);
+                }
+            });
+            openAIMenu.add(modelItem);
         }
         popup.add(hotkeysMenu);
 
