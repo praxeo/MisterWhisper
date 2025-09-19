@@ -18,6 +18,19 @@ MisterWhisper supports over 100 languages, making it a robust multilingual trans
 
 - Local or remote : You can use the included Whisper transcription locally or connect to a remote service for transcription.
 
+# Releases
+
+- Windows installer EXE and portable ZIP are published on the GitHub Releases page for tagged versions.
+- To build locally:
+  - Installer: ./gradlew buildInstaller → build/windows-installer/MisterWhisper_Installer.exe
+  - ZIP: ./gradlew distZip → build/distributions/MisterWhisper.zip
+- Optional offline installer: bundle a private JRE by placing a JRE under ./jre before running the installer build. See [docs/INSTALLER_WINDOWS.md](docs/INSTALLER_WINDOWS.md)
+
+# Deployment
+
+- Railway is no longer used for this project. If you had previous Railway integrations, please disconnect them following [docs/DISCONNECT_RAILWAY.md](docs/DISCONNECT_RAILWAY.md)
+- Releases are delivered via GitHub Releases. Tag a version (e.g. v1.0.0), then upload EXE and ZIP artifacts.
+
 # Usage
 
 There are two ways to start recording. 

@@ -1,0 +1,55 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows installer and ZIP
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Build installer and ZIP
+        shell: bash
+        run: |
+          ./gradlew --no-daemon buildInstaller distZip
+          ls -lah build/windows-installer || true
+          ls -lah build/distributions || true
+
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          $exe = 'build/windows-installer/MisterWhisper_Installer.exe'
+          $zip = 'build/distributions/MisterWhisper.zip'
+          $out = 'build/SHA256SUMS.txt'
+          $h1 = (Get-FileHash $exe -Algorithm SHA256).Hash + "  $exe"
+          $h2 = (Get-FileHash $zip -Algorithm SHA256).Hash + "  $zip"
+          Set-Content -Path $out -Value $h1 -Encoding ascii
+          Add-Content -Path $out -Value $h2 -Encoding ascii
+          Get-Content $out
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/windows-installer/MisterWhisper_Installer.exe
+            build/distributions/MisterWhisper.zip
+            build/SHA256SUMS.txt
