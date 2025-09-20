@@ -33,15 +33,33 @@ jobs:
           ls -lah build/windows-installer || true
           ls -lah build/distributions || true
 
+      - name: Resolve artifacts
+        id: resolve
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = 'build/windows-installer/MisterWhisper_Installer.exe'
+          if (!(Test-Path $exe)) { throw "Missing installer EXE at $exe" }
+
+          $zips = Get-ChildItem -Path 'build/distributions' -Filter '*.zip' -ErrorAction Stop
+          if ($zips.Count -ge 1) {
+            $zip = $zips[0].FullName
+          } else {
+            throw "No distribution zip found in build/distributions"
+          }
+
+          "exe=$exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+          "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+
       - name: Generate SHA256 checksums
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          $exe = 'build/windows-installer/MisterWhisper_Installer.exe'
-          $zip = 'build/distributions/MisterWhisper.zip'
           $out = 'build/SHA256SUMS.txt'
-          $h1 = (Get-FileHash $exe -Algorithm SHA256).Hash + "  $exe"
-          $h2 = (Get-FileHash $zip -Algorithm SHA256).Hash + "  $zip"
+          $exePath = "${{ steps.resolve.outputs.exe }}"
+          $zipPath = "${{ steps.resolve.outputs.zip }}"
+          $h1 = (Get-FileHash $exePath -Algorithm SHA256).Hash + "  $exePath"
+          $h2 = (Get-FileHash $zipPath -Algorithm SHA256).Hash + "  $zipPath"
           Set-Content -Path $out -Value $h1 -Encoding ascii
           Add-Content -Path $out -Value $h2 -Encoding ascii
           Get-Content $out
@@ -50,6 +68,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/windows-installer/MisterWhisper_Installer.exe
-            build/distributions/MisterWhisper.zip
+            ${{ steps.resolve.outputs.exe }}
+            ${{ steps.resolve.outputs.zip }}
             build/SHA256SUMS.txt
