@@ -26,6 +26,18 @@ jobs:
       - name: Install NSIS
         run: choco install nsis -y
 
+      - name: Create minimal runtime (JRE) with jlink
+        shell: bash
+        run: |
+          jlink \
+            --add-modules java.base,java.desktop,java.logging,java.prefs \
+            --output jre \
+            --strip-debug \
+            --no-man-pages \
+            --no-header-files \
+            --compress=2
+          ls -la jre || dir jre
+
       - name: Build installer and ZIP
         shell: bash
         run: |
