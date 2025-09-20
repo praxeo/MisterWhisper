@@ -35,6 +35,9 @@ jar {
         )
     }
 }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
 
 task buildInstaller(type: Copy) {
     dependsOn jar
