@@ -78,6 +78,9 @@ public class MisterWhisper implements NativeKeyListener {
     private LocalWhisperCPP w;
     private String model;
     private String remoteUrl;
+    private String apiKey;
+    private String apiModel;
+    
     // Tray icon
     private TrayIcon trayIcon;
     private Image imageRecording;
@@ -104,6 +107,7 @@ public class MisterWhisper implements NativeKeyListener {
     private boolean ctrltHotkey;
     private long recordingStartTime = 0;
     private boolean hotkeyPressed;
+    
     // Trigger mode
     private static final String START_STOP = "start_stop";
     private static final String PUSH_TO_TALK_DOUBLE_TAP = "push_to_talk_double_tap";
@@ -126,7 +130,7 @@ public class MisterWhisper implements NativeKeyListener {
         COPY_TO_CLIPBOARD_AND_PASTE, TYPE_STRING, NOTHING
     }
 
-    public MisterWhisper(String remoteUrl) throws FileNotFoundException, NativeHookException {
+    public MisterWhisper(String remoteUrl, String apiKey, String apiModel) throws FileNotFoundException, NativeHookException {
         if (MisterWhisper.ALLOWED_HOTKEYS.length != MisterWhisper.ALLOWED_HOTKEYS_CODE.length) {
             throw new IllegalStateException("ALLOWED_HOTKEYS size mismatch");
         }
@@ -149,6 +153,9 @@ public class MisterWhisper implements NativeKeyListener {
         this.audioFormat = new AudioFormat(sampleRate, sampleSizeInBits, channels, signed, bigEndian);
 
         this.remoteUrl = remoteUrl;
+        this.apiKey = apiKey;
+        this.apiModel = apiModel;
+        
         if (remoteUrl == null) {
 
             File dir = new File("models");
@@ -199,6 +206,9 @@ public class MisterWhisper implements NativeKeyListener {
             System.out.println("MisterWhisper using WhisperCPP with " + this.model);
         } else {
             System.out.println("MisterWhisper using remote speech to text service : " + remoteUrl);
+            if (apiKey != null) {
+                System.out.println("Using API authentication with model: " + (apiModel != null ? apiModel : "default"));
+            }
         }
     }
 
@@ -1110,11 +1120,11 @@ public class MisterWhisper implements NativeKeyListener {
 
     private String processRemote(File out, Action action) throws IOException {
         long t1 = System.currentTimeMillis();
-        String string = new RemoteWhisperCPP(this.remoteUrl).transcribe(out, 0.0, 0.01);
+        RemoteWhisperCPP remote = new RemoteWhisperCPP(this.remoteUrl, this.apiKey, this.apiModel);
+        String string = remote.transcribe(out, 0.0, 0.01);
         long t2 = System.currentTimeMillis();
-        System.out.println("Response from remote whisper.cpp (" + (t2 - t1) + " ms): " + string);
+        System.out.println("Response from remote API (" + (t2 - t1) + " ms): " + string);
         return string.trim();
-
     }
 
     private void stopRecording() {
@@ -1172,21 +1182,28 @@ public class MisterWhisper implements NativeKeyListener {
             try {
                 Boolean debug = false;
                 String url = null;
+                String apiKey = null;
+                String apiModel = null;
                 boolean forceOpenWindow = false;
+                
                 for (int i = 0; i < args.length; i++) {
                     final String arg = args[i];
                     if (!arg.startsWith("-D")) {
-
                         if (arg.startsWith("http")) {
                             url = arg;
                         } else if (arg.equals("--window")) {
                             forceOpenWindow = true;
                         } else if (arg.equals("--debug")) {
                             debug = true;
+                        } else if (arg.equals("--api-key") && i + 1 < args.length) {
+                            apiKey = args[++i];
+                        } else if (arg.equals("--model") && i + 1 < args.length) {
+                            apiModel = args[++i];
                         }
                     }
                 }
-                final MisterWhisper r = new MisterWhisper(url);
+                
+                final MisterWhisper r = new MisterWhisper(url, apiKey, apiModel);
                 r.debug = debug;
                 boolean openWindow = r.prefs.getBoolean("open-window", true);
                 if (forceOpenWindow) {
