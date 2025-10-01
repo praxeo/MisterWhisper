@@ -1,0 +1,105 @@
+name: Windows Installer (jpackage)
+
+on:
+  push:
+    tags: ["v*"]         # e.g. v1.0.0
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    env:
+      APP_NAME: MisterWhisper
+      VENDOR: Praxeo
+      MAIN_CLASS: MisterWhisper          # <-- change if your entry point differs
+      ICON_PATH: assets\\app.ico         # <-- set to "" to skip icon
+      UPGRADE_UUID: 8f86d9b3-2d9a-4a7a-8b69-2b9f1f3e1a21  # keep stable across releases
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compile (javac) and build runnable JAR
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory build, build\classes | Out-Null
+
+          $cp = ".;lib/*"
+          $sources = Get-ChildItem -Recurse -Filter *.java | % FullName
+          if ($sources.Count -eq 0) { throw "No .java sources found" }
+
+          javac -d build\classes -cp $cp $sources
+
+          @"
+          Main-Class: $env:MAIN_CLASS
+          Class-Path: lib/
+          "@ | Set-Content build\MANIFEST.MF -NoNewline
+
+          Copy-Item -Recurse lib build\
+
+          Push-Location build
+          jar cfm $env:APP_NAME.jar MANIFEST.MF -C classes .
+          Pop-Location
+
+      - name: Package installer (jpackage .exe)
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = "0.0.0-ci" }
+
+          $iconArg = ""
+          if (-not [string]::IsNullOrWhiteSpace($env:ICON_PATH) -and (Test-Path $env:ICON_PATH)) {
+            $iconArg = "--icon `"$env:ICON_PATH`""
+          }
+
+          jpackage `
+            --name "$env:APP_NAME" `
+            --app-version "$version" `
+            --type exe `
+            --input build `
+            --main-jar "$env:APP_NAME.jar" `
+            --class-path "lib/*" `
+            --main-class "$env:MAIN_CLASS" `
+            --win-menu --win-shortcut --win-dir-chooser `
+            --vendor "$env:VENDOR" `
+            --win-upgrade-uuid "$env:UPGRADE_UUID" `
+            $iconArg
+
+      # Optional: also build MSI (uncomment to enable)
+      # - name: Package MSI
+      #   shell: pwsh
+      #   run: |
+      #     $version = "${{ github.ref_name }}".TrimStart('v')
+      #     jpackage `
+      #       --name "$env:APP_NAME" `
+      #       --app-version "$version" `
+      #       --type msi `
+      #       --input build `
+      #       --main-jar "$env:APP_NAME.jar" `
+      #       --class-path "lib/*" `
+      #       --main-class "$env:MAIN_CLASS" `
+      #       --win-menu --win-shortcut --win-dir-chooser `
+      #       --vendor "$env:VENDOR" `
+      #       --win-upgrade-uuid "$env:UPGRADE_UUID"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-Windows-Installer
+          path: |
+            .\*.exe
+            .\*.msi
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.exe
+            *.msi
